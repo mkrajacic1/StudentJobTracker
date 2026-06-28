@@ -4,7 +4,7 @@ import requests
 
 from models.job import JobPosting
 from models.category import JobCategory
-import text_from_html as text_from_html
+import utils.text_from_html as text_from_html
 
 
 REFERER = "https://www.sczg.unizg.hr/"
@@ -16,8 +16,8 @@ JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
 
 def parse_job(job: dict) -> JobPosting:
     job_id = job["id"]
-    published_timestamp = datetime.fromisoformat(job["date"].strip())
-    last_modified_timestamp = datetime.fromisoformat(job["modified"].strip())
+    published_at = datetime.fromisoformat(job["date"].strip())
+    last_modified = datetime.fromisoformat(job["modified"].strip())
     slug = job["slug"].strip()
 
     meta_data = job["meta"]
@@ -36,9 +36,9 @@ def parse_job(job: dict) -> JobPosting:
     expires = datetime.fromisoformat(meta_data["active_until"].strip())
 
     return JobPosting(
-        id=job_id,
-        published_timestamp=published_timestamp,
-        last_modified_timestamp=last_modified_timestamp,
+        job_id=job_id,
+        published_at=published_at,
+        last_modified=last_modified,
         expires=expires,
         slug=slug,
         job_title=title,
@@ -83,6 +83,7 @@ def scrape_job_data() -> tuple[list[JobPosting], list[JobCategory]]:
         
         initial_jobs_response = se.get(INITIAL_JOBS_URL, timeout=TIMEOUT_DURATION)
         initial_jobs_data = initial_jobs_response.json()
+        time.sleep(1)
 
         total_pages = int(initial_jobs_data["pageProps"]["totalPages"])
         for page_num in range(2, total_pages + 1):

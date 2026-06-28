@@ -3,9 +3,9 @@ from datetime import datetime
 
 @dataclass
 class JobPosting:
-    id: int
-    published_timestamp: datetime
-    last_modified_timestamp: datetime
+    job_id: int
+    published_at: datetime
+    last_modified: datetime
     expires: datetime
     slug: str
     job_title: str
@@ -21,11 +21,11 @@ class JobPosting:
     required_skills: str
     preferred_skills: str
 
-    def to_db_row(self) -> tuple:
-        return (
-            self.id,
-            self.published_timestamp,
-            self.last_modified_timestamp,
+    def to_db_row(self) -> list:
+        return [
+            self.job_id,
+            self.published_at,
+            self.last_modified,
             self.expires,
             self.slug,
             self.job_title,
@@ -40,4 +40,4 @@ class JobPosting:
             self.applicant_profile,
             self.required_skills,
             self.preferred_skills
-        )
+        ]
