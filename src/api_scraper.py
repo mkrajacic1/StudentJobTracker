@@ -1,9 +1,10 @@
 import time
 from datetime import datetime
-from dataclasses import dataclass
 import requests
 
-import text_from_html
+from models.job import JobPosting
+from models.category import JobCategory
+import text_from_html as text_from_html
 
 
 REFERER = "https://www.sczg.unizg.hr/"
@@ -11,27 +12,6 @@ INITIAL_JOBS_URL = "https://www.sczg.unizg.hr/_next/data/WlD2U-ISgimZiMr1mvQa5/p
 SUBSEQUENT_PAGES = "https://www.sczg.unizg.hr/wp-json/wp/v2/jobs"
 TIMEOUT_DURATION = 5
 JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
-
-
-@dataclass
-class JobPosting:
-    id: int
-    published_timestamp: datetime
-    last_modified_timestamp: datetime
-    slug: str
-    job_title: str
-    category_id: int
-    contact: str
-    work_location: str
-    work_start: str
-    work_end: str
-    hourly_rate: str
-    work_hours: str
-    job_description: str
-    applicant_profile: str
-    required_skills: str
-    preferred_skills: str
-    expires: datetime
 
 
 def parse_job(job: dict) -> JobPosting:
@@ -76,42 +56,57 @@ def parse_job(job: dict) -> JobPosting:
     )
 
 
-def process_jobs(jobs: list[dict]) -> list[JobPosting]:
+def parse_jobs(jobs: list[dict]) -> list[JobPosting]:
     return [parse_job(job) for job in jobs]
 
 
-def scrape_jobs() -> list[JobPosting]:
+def parse_category(category: dict) -> JobCategory:
+    category_id = category["id"]
+    slug = category["slug"].strip()
+    category_name = category["name"].strip()
+
+    return JobCategory(
+        category_id=category_id,
+        slug=slug,
+        category_name=category_name
+    )
+
+
+def parse_categories(categories: list[dict]) -> list[JobCategory]:
+    return [parse_category(category) for category in categories]
+
+
+def scrape_job_data() -> tuple[list[JobPosting], list[JobCategory]]:
+    paginated_jobs = []
+    with requests.Session() as se:
+        se.headers.update({"Referer": REFERER})
+        
+        initial_jobs_response = se.get(INITIAL_JOBS_URL, timeout=TIMEOUT_DURATION)
+        initial_jobs_data = initial_jobs_response.json()
+
+        total_pages = int(initial_jobs_data["pageProps"]["totalPages"])
+        for page_num in range(2, total_pages + 1):
+            time_ms= round(time.time_ns() / 1000000)
+            page_params = {
+                "per_page": 30, 
+                "page": page_num,
+                "timestamp": time_ms,
+                "allowed_sc": "true", 
+                "orderby": "modified", 
+                "filter_by_date": "true", 
+                "order": "desc"
+            }
+            page_response = se.get(SUBSEQUENT_PAGES, timeout=TIMEOUT_DURATION, params=page_params)
+            paginated_jobs.append(page_response.json())
+            time.sleep(1)
+
+    categories = initial_jobs_data["pageProps"]["categories"]
+    all_categories = parse_categories(categories)
+
+    initial_jobs = initial_jobs_data["pageProps"]["initialJobs"]
+    paginated_jobs = [job for job_list in paginated_jobs for job in job_list]   # need to flatten the list
     all_jobs = []
-    headers = {"Referer": REFERER}
+    all_jobs.extend(parse_jobs(initial_jobs))
+    all_jobs.extend(parse_jobs(paginated_jobs))
     
-    initial_jobs_response = requests.get(INITIAL_JOBS_URL, headers=headers, timeout=TIMEOUT_DURATION)
-    initial_jobs_raw = initial_jobs_response.json()
-    initial_jobs = initial_jobs_raw["pageProps"]["initialJobs"]
-    all_jobs.extend(process_jobs(initial_jobs))
-
-    total_pages = int(initial_jobs_raw["pageProps"]["totalPages"])
-    page_params = {
-        "per_page": 30,
-        "allowed_sc": "true",
-        "orderby": "modified",
-        "filter_by_date": "true",
-        "order": "desc"
-    }
-    for page_num in range(2, total_pages + 1):
-        time_ms= round(time.time_ns() / 1000000)
-        page_params["page"] = page_num
-        page_params["timestamp"] = time_ms
-
-        page_response = requests.get(SUBSEQUENT_PAGES, headers=headers, timeout=TIMEOUT_DURATION, params=page_params)
-        page_jobs = page_response.json()
-        all_jobs.extend(process_jobs(page_jobs))
-
-    job_categories = {category["id"]: category["name"] for category in initial_jobs_raw["pageProps"]["categories"]}
-    jobs_per_category = {}
-    longest_title = 0
-    for job in all_jobs:
-        category_name = job_categories[job.category_id]
-        jobs_per_category[category_name] = jobs_per_category.get(category_name, 0) + 1
-        longest_title = max(longest_title, len(job.job_title))
-
-    return all_jobs
+    return all_jobs, all_categories
