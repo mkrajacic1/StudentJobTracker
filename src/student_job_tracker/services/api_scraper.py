@@ -1,10 +1,12 @@
-import time
-from datetime import datetime
 import requests
 
-from models.job import JobPosting
-from models.category import JobCategory
-import utils.text_from_html as text_from_html
+import time
+from datetime import datetime
+import unicodedata
+
+from student_job_tracker.models.job import JobPosting
+from student_job_tracker.models.category import JobCategory
+from student_job_tracker.models.html_parser import MyHTMLParser
 
 
 REFERER = "https://www.sczg.unizg.hr/"
@@ -12,6 +14,15 @@ INITIAL_JOBS_URL = "https://www.sczg.unizg.hr/_next/data/WlD2U-ISgimZiMr1mvQa5/p
 SUBSEQUENT_PAGES = "https://www.sczg.unizg.hr/wp-json/wp/v2/jobs"
 TIMEOUT_DURATION = 5
 JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
+
+
+def text_from_html(html: str) -> str:
+    parser = MyHTMLParser()
+    parser.feed(html)
+    text = parser.get_text()
+    text = unicodedata.normalize("NFC", text)
+    text = ' '.join(text.split())
+    return text
 
 
 def parse_job(job: dict) -> JobPosting:
@@ -23,14 +34,14 @@ def parse_job(job: dict) -> JobPosting:
     meta_data = job["meta"]
     title = meta_data["title"].strip()
     category_id = meta_data["type"]
-    contact = text_from_html.extract(meta_data["contact_student"].strip())
+    contact = text_from_html(meta_data["contact_student"].strip())
     location = meta_data["city"].strip()
     work_start = meta_data["work_start"].strip()
     work_end = meta_data["work_end"].strip()
     job_hourly_rate = meta_data["payment_rate"].strip()
     work_hours = meta_data["work_hours"].strip()
-    description = text_from_html.extract(meta_data["description"].strip())
-    applicant_profile = text_from_html.extract(meta_data["whyme"].strip())
+    description = text_from_html(meta_data["description"].strip())
+    applicant_profile = text_from_html(meta_data["whyme"].strip())
     required_skills = meta_data["skills"].strip()
     preferred_skills = meta_data["labels"].strip()
     expires = datetime.fromisoformat(meta_data["active_until"].strip())
