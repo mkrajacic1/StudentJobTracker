@@ -5,4 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "StudentJobTracker"
 version = "1.0.0"
-
+dependencies = [
+    "requests",
+    "psycopg[binary]",
+    "psycopg_pool"
+]

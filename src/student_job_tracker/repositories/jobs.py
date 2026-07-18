@@ -1,8 +1,8 @@
-from psycopg.rows import class_row, dict_row, DictRow
 from psycopg import Connection
+from psycopg.rows import dict_row, DictRow
 
-from student_job_tracker.models.job import JobPosting
 from student_job_tracker.models.category import JobCategory
+from student_job_tracker.models.job import JobPosting
 
 
 INSERT_JOB_SQL = """
@@ -35,24 +35,6 @@ INSERT_JOB_SQL = """
 def populate_jobs(conn: Connection, jobs: list[JobPosting]) -> None:
     with conn.cursor() as cur:
         cur.executemany(INSERT_JOB_SQL, [job.to_db_row() for job in jobs])
-
-
-def populate_categories(conn: Connection, categories: list[JobCategory]) -> None:
-    with conn.cursor() as cur:
-        cur.executemany(
-            "INSERT INTO job_categories (category_id, slug, category_name) VALUES (%s, %s, %s);",
-            [category.to_db_row() for category in categories]
-        )
-
-
-def truncate_jobs(conn: Connection) -> None:
-    with conn.cursor() as cur:
-        cur.execute("TRUNCATE job_postings;")
-
-
-def truncate_jobs_and_categories(conn: Connection) -> None:
-    with conn.cursor() as cur:
-        cur.execute("TRUNCATE job_postings, job_categories;")
 
 
 def fetch_jobs_modified_time(conn: Connection) -> list[DictRow]:
@@ -102,6 +84,24 @@ def modify_jobs(conn: Connection, jobs: list[JobPosting]) -> None:
 def delete_jobs(conn: Connection, jobs: list[int]) -> None:
     with conn.cursor() as cur:
         cur.execute("DELETE FROM job_postings WHERE job_id = ANY(%s);", [jobs])
+
+
+def truncate_jobs(conn: Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute("TRUNCATE job_postings;")
+
+
+def truncate_jobs_and_categories(conn: Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute("TRUNCATE job_postings, job_categories;")
+
+
+def populate_categories(conn: Connection, categories: list[JobCategory]) -> None:
+    with conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO job_categories (category_id, slug, category_name) VALUES (%s, %s, %s);",
+            [category.to_db_row() for category in categories]
+        )
 
 
 def fetch_category_status(conn: Connection) -> list[DictRow]:

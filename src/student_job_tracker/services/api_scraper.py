@@ -1,12 +1,12 @@
 import requests
 
-import time
 from datetime import datetime
+import time
 import unicodedata
 
-from student_job_tracker.models.job import JobPosting
 from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.html_parser import MyHTMLParser
+from student_job_tracker.models.job import JobPosting
 
 
 REFERER = "https://www.sczg.unizg.hr/"
@@ -88,7 +88,6 @@ def parse_categories(categories: list[dict]) -> list[JobCategory]:
 
 
 def scrape_job_data() -> tuple[list[JobPosting], list[JobCategory]]:
-    paginated_jobs = []
     with requests.Session() as se:
         se.headers.update({"Referer": REFERER})
         
@@ -97,6 +96,7 @@ def scrape_job_data() -> tuple[list[JobPosting], list[JobCategory]]:
         time.sleep(1)
 
         total_pages = int(initial_jobs_data["pageProps"]["totalPages"])
+        paginated_jobs = []
         for page_num in range(2, total_pages + 1):
             time_ms= round(time.time_ns() / 1000000)
             page_params = {
@@ -110,7 +110,9 @@ def scrape_job_data() -> tuple[list[JobPosting], list[JobCategory]]:
             }
             page_response = se.get(SUBSEQUENT_PAGES, timeout=TIMEOUT_DURATION, params=page_params)
             paginated_jobs.append(page_response.json())
-            time.sleep(1)
+
+            if page_num != total_pages:
+                time.sleep(1)
 
     categories = initial_jobs_data["pageProps"]["categories"]
     all_categories = parse_categories(categories)
