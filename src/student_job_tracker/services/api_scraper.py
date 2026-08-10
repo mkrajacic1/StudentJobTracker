@@ -10,7 +10,7 @@ from student_job_tracker.models.job import JobPosting
 
 
 REFERER = "https://www.sczg.unizg.hr/"
-INITIAL_JOBS_URL = "https://www.sczg.unizg.hr/_next/data/WlD2U-ISgimZiMr1mvQa5/poslovi.json"
+INITIAL_JOBS_URL = "https://www.sczg.unizg.hr/_next/data/BF2apvVzAG6jbVnlJBJoG/hr/poslovi.json"
 SUBSEQUENT_PAGES = "https://www.sczg.unizg.hr/wp-json/wp/v2/jobs"
 TIMEOUT_DURATION = 5
 JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
@@ -87,7 +87,7 @@ def parse_categories(categories: list[dict]) -> list[JobCategory]:
     return [parse_category(category) for category in categories]
 
 
-def scrape_job_data() -> tuple[list[JobPosting], list[JobCategory]]:
+def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
     with requests.Session() as se:
         se.headers.update({"Referer": REFERER})
         

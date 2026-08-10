@@ -3,20 +3,21 @@ from psycopg_pool import ConnectionPool
 
 from datetime import datetime
 
+from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.job import JobPosting
 from student_job_tracker.repositories import jobs
-from student_job_tracker.services.api_scraper import scrape_job_data
+from student_job_tracker.services.api_scraper import scrape
 
 
 def populate_jobs_and_categories(pool: ConnectionPool):
-    job_postings, categories = scrape_job_data()
+    job_postings, categories = scrape()
     with pool.connection() as conn:
         jobs.populate_categories(conn, categories)
         jobs.populate_jobs(conn, job_postings)
 
 
 def populate_jobs_table(pool: ConnectionPool):
-    job_postings, _ = scrape_job_data()
+    job_postings, _ = scrape()
     with pool.connection() as conn:
         jobs.populate_jobs(conn, job_postings)
     
@@ -57,10 +58,8 @@ def find_new_and_modified_jobs(job_postings: list[JobPosting], snapshot_jobs_las
     return new_jobs, modified_jobs
 
 
-def scrape_and_update_jobs(pool: ConnectionPool):
-    job_postings, _ = scrape_job_data()
+def track_jobs(pool: ConnectionPool, job_postings: list[JobPosting]):
     scraped_jobs_ids = {job.job_id for job in job_postings}
-
     with pool.connection() as conn:
         jobs_current_db_snapshot = jobs.fetch_jobs_modified_time(conn)
         snapshot_jobs_last_modified = {job["job_id"]: job["last_modified"] for job in jobs_current_db_snapshot}
@@ -69,13 +68,32 @@ def scrape_and_update_jobs(pool: ConnectionPool):
         jobs.delete_jobs(conn, deleted_jobs)
 
         new_jobs, modified_jobs = find_new_and_modified_jobs(job_postings, snapshot_jobs_last_modified)
-        jobs.insert_jobs(conn, new_jobs)
         jobs.modify_jobs(conn, modified_jobs)
-    
+        jobs.insert_jobs(conn, new_jobs)
+
+
+def check_categories(pool: ConnectionPool, scraped_categories: list[JobCategory]) -> list[JobCategory]:
+    with pool.connection() as conn:
+        db_categories = jobs.fetch_categories(conn)
+
+    db_categories_by_id = {category.category_id: category for category in db_categories}
+    scraped_categories_by_id = {category.category_id: category for category in scraped_categories}
+
+    if db_categories_by_id.keys() != scraped_categories_by_id.keys():
+        print("Categories changed!")
+
+    modified_categories = []
+    for id, scraped_category in scraped_categories_by_id.items():
+        db_category = db_categories_by_id[id]
+        if scraped_category.slug != db_category.slug or scraped_category.category_name != db_category.category_name:
+            modified_categories.append(scraped_category)
+
+    return modified_categories
+
 
 def track_categories(pool: ConnectionPool):
     with pool.connection() as conn:
-        available_categories = jobs.fetch_category_status(conn)
+        available_categories = jobs.fetch_categories_status(conn)
         for category in available_categories:
             print(f"{category["category_name"]}\tID:{category["category_id"]}\tCurrently tracking: {"yes" if category["tracked_status"] else "no"}")
         print()

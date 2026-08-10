@@ -1,5 +1,5 @@
 from psycopg import Connection
-from psycopg.rows import dict_row, DictRow
+from psycopg.rows import dict_row, DictRow, class_row
 
 from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.job import JobPosting
@@ -104,7 +104,13 @@ def populate_categories(conn: Connection, categories: list[JobCategory]) -> None
         )
 
 
-def fetch_category_status(conn: Connection) -> list[DictRow]:
+def fetch_categories(conn: Connection) -> list[JobCategory]:
+    with conn.cursor(row_factory=class_row(JobCategory)) as cur:
+        cur.execute("SELECT category_id, slug, category_name FROM job_categories;")
+        return cur.fetchall()
+
+
+def fetch_categories_status(conn: Connection) -> list[DictRow]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute("SELECT category_id, category_name, tracked_status FROM job_categories;")
         return cur.fetchall()
