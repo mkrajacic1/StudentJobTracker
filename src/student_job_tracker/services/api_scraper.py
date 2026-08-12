@@ -1,11 +1,11 @@
 import requests
 
 from datetime import datetime
+from html.parser import HTMLParser
 import time
 import unicodedata
 
 from student_job_tracker.models.category import JobCategory
-from student_job_tracker.models.html_parser import MyHTMLParser
 from student_job_tracker.models.job import JobPosting
 
 
@@ -14,6 +14,18 @@ INITIAL_JOBS_URL = "https://www.sczg.unizg.hr/_next/data/BF2apvVzAG6jbVnlJBJoG/h
 SUBSEQUENT_PAGES = "https://www.sczg.unizg.hr/wp-json/wp/v2/jobs"
 TIMEOUT_DURATION = 5
 JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
+
+
+class MyHTMLParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+
+    def get_text(self) -> str:
+        return ' '.join(self.parts)
 
 
 def text_from_html(html: str) -> str:
@@ -34,6 +46,7 @@ def parse_job(job: dict) -> JobPosting:
     meta_data = job["meta"]
     title = meta_data["title"].strip()
     category_id = meta_data["type"]
+    company_name = meta_data["company_name"]
     contact = text_from_html(meta_data["contact_student"].strip())
     location = meta_data["city"].strip()
     work_start = meta_data["work_start"].strip()
@@ -54,6 +67,7 @@ def parse_job(job: dict) -> JobPosting:
         slug=slug,
         job_title=title,
         category_id=category_id,
+        company_name=company_name,
         contact=contact,
         work_location=location,
         work_start=work_start,

@@ -14,6 +14,7 @@ INSERT_JOB_SQL = """
                     slug,
                     job_title,
                     category_id,
+                    company_name,
                     contact,
                     work_location,
                     work_start,
@@ -26,7 +27,7 @@ INSERT_JOB_SQL = """
                     preferred_skills
                 ) 
                 VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                     %s, %s, %s, %s, %s, %s, %s, %s
                 );
                 """
@@ -62,6 +63,7 @@ def modify_jobs(conn: Connection, jobs: list[JobPosting]) -> None:
                 job_title,
                 category_id,
                 contact,
+                company_name,
                 work_location,
                 work_start,
                 work_end,
@@ -72,7 +74,7 @@ def modify_jobs(conn: Connection, jobs: list[JobPosting]) -> None:
                 required_skills,
                 preferred_skills
             ) = (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                 %s, %s, %s, %s, %s, %s, %s, %s
             )
             WHERE job_id = %s;

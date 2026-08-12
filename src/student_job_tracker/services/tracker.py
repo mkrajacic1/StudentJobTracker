@@ -1,5 +1,6 @@
 from psycopg.rows import DictRow
 from psycopg_pool import ConnectionPool
+import requests
 
 from datetime import datetime
 
@@ -7,6 +8,7 @@ from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.job import JobPosting
 from student_job_tracker.repositories import jobs
 from student_job_tracker.services.api_scraper import scrape
+from student_job_tracker.services import telegram
 
 
 def populate_jobs_and_categories(pool: ConnectionPool):
@@ -58,19 +60,28 @@ def find_new_and_modified_jobs(job_postings: list[JobPosting], snapshot_jobs_las
     return new_jobs, modified_jobs
 
 
-def track_jobs(pool: ConnectionPool, job_postings: list[JobPosting]):
-    scraped_jobs_ids = {job.job_id for job in job_postings}
+def update_job_state(pool: ConnectionPool, scraped_jobs: list[JobPosting]) -> tuple[list[JobPosting], list[JobPosting]]:
+    scraped_jobs_ids = {job.job_id for job in scraped_jobs}
     with pool.connection() as conn:
-        jobs_current_db_snapshot = jobs.fetch_jobs_modified_time(conn)
-        snapshot_jobs_last_modified = {job["job_id"]: job["last_modified"] for job in jobs_current_db_snapshot}
+        db_snapshot_jobs = jobs.fetch_jobs_modified_time(conn)
+        snapshot_jobs_last_modified = {job["job_id"]: job["last_modified"] for job in db_snapshot_jobs}
 
-        deleted_jobs = find_deleted_jobs(jobs_current_db_snapshot, scraped_jobs_ids)
+        deleted_jobs = find_deleted_jobs(db_snapshot_jobs, scraped_jobs_ids)
         jobs.delete_jobs(conn, deleted_jobs)
 
-        new_jobs, modified_jobs = find_new_and_modified_jobs(job_postings, snapshot_jobs_last_modified)
+        new_jobs, modified_jobs = find_new_and_modified_jobs(scraped_jobs, snapshot_jobs_last_modified)
         jobs.modify_jobs(conn, modified_jobs)
         jobs.insert_jobs(conn, new_jobs)
 
+    return new_jobs, modified_jobs
+
+
+def track_jobs(pool: ConnectionPool, job_postings: list[JobPosting]):
+    new_jobs, modified_jobs = update_job_state(pool, job_postings)
+    with requests.Session() as se:
+        telegram.new_jobs_notify(se, new_jobs)
+        telegram.modified_jobs_notify(se, modified_jobs)
+    
 
 def check_categories(pool: ConnectionPool, scraped_categories: list[JobCategory]) -> list[JobCategory]:
     with pool.connection() as conn:

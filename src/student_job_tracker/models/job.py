@@ -10,6 +10,7 @@ class JobPosting:
     slug: str
     job_title: str
     category_id: int
+    company_name: str
     contact: str
     work_location: str
     work_start: str
@@ -30,6 +31,7 @@ class JobPosting:
             self.slug,
             self.job_title,
             self.category_id,
+            self.company_name,
             self.contact,
             self.work_location,
             self.work_start,
