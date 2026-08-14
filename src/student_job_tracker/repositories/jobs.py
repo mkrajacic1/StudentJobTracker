@@ -118,11 +118,16 @@ def fetch_categories_status(conn: Connection) -> list[DictRow]:
         return cur.fetchall()
 
 
+def modify_categories(conn: Connection, categories: list[JobCategory]) -> None:
+    with conn.cursor() as cur:
+        cur.executemany("UPDATE job_categories SET (slug, category_name) = (%s, %s)", [[category.slug, category.category_name] for category in categories])
+
+
 def start_tracking_categories(conn: Connection, category_IDs: list[str]) -> None:
     with conn.cursor() as cur:
         cur.execute("UPDATE job_categories SET tracked_status = true WHERE category_id = ANY(%s);", [category_IDs])
 
 
-def stop_tracking_all_categories(conn: Connection) -> None:
+def stop_tracking_categories(conn: Connection, category_IDs: list[str]) -> None:
     with conn.cursor() as cur:
-        cur.execute("UPDATE job_categories SET tracked_status = false;")
+        cur.execute("UPDATE job_categories SET tracked_status = false WHERE category_id = ANY(%s);", [category_IDs])

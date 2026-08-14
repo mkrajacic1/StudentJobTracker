@@ -77,16 +77,17 @@ def update_job_state(pool: ConnectionPool, scraped_jobs: list[JobPosting]) -> tu
 
 
 def track_jobs(pool: ConnectionPool, job_postings: list[JobPosting]):
+    with pool.connection() as conn:
+        tracked_categories = jobs.fetch_categories_status(conn)
+    tracked_categories = {category["category_id"] for category in tracked_categories if category["tracked_status"]}
+
     new_jobs, modified_jobs = update_job_state(pool, job_postings)
-    with requests.Session() as se:
-        telegram.new_jobs_notify(se, new_jobs)
-        telegram.modified_jobs_notify(se, modified_jobs)
+    tracked_new_jobs = [job for job in new_jobs if job.category_id in tracked_categories]
+    tracked_modified_jobs = [job for job in modified_jobs if job.category_id in tracked_categories]
+    telegram.jobs_updates_notify(tracked_new_jobs, tracked_modified_jobs)
     
 
-def check_categories(pool: ConnectionPool, scraped_categories: list[JobCategory]) -> list[JobCategory]:
-    with pool.connection() as conn:
-        db_categories = jobs.fetch_categories(conn)
-
+def compare_categories(scraped_categories: list[JobCategory], db_categories: list[JobCategory]) -> list[JobCategory]:
     db_categories_by_id = {category.category_id: category for category in db_categories}
     scraped_categories_by_id = {category.category_id: category for category in scraped_categories}
 
@@ -102,20 +103,41 @@ def check_categories(pool: ConnectionPool, scraped_categories: list[JobCategory]
     return modified_categories
 
 
-def track_categories(pool: ConnectionPool):
+def monitor_categories(pool: ConnectionPool, scraped_categories: list[JobCategory]):
     with pool.connection() as conn:
-        available_categories = jobs.fetch_categories_status(conn)
+        db_categories = jobs.fetch_categories(conn)
+        modified_categories = compare_categories(scraped_categories, db_categories)
+        if modified_categories:
+            jobs.modify_categories(conn, modified_categories)
+            alert_message = f"Sljedeće kategorije poslova su promjenjene (ID): {", ".join([str([category.category_id]) for category in modified_categories])}."
+            telegram.alert_notify(alert_message)
+
+
+def track_categories(pool: ConnectionPool):
+    while True:
+        with pool.connection() as conn:
+            available_categories = jobs.fetch_categories_status(conn)
+
         for category in available_categories:
-            print(f"{category["category_name"]}\tID:{category["category_id"]}\tCurrently tracking: {"yes" if category["tracked_status"] else "no"}")
+            print(f"{category["category_name"]}\t\tID:{category["category_id"]}\t\tCurrently tracking: {"yes" if category["tracked_status"] else "no"}")
         print()
+        print("Command options:")
+        print("Start tracking categories - 1")
+        print("Stop tracking categories - 2")
+        print("Choose any other key to exit")
+        choice = input("Input: ").strip()
+        match choice:
+            case "1":
+                start_tracking = input("Choose which categories to track, type category IDs separated by spaces: ").split()
+                if start_tracking:
+                    with pool.connection() as conn:
+                        jobs.start_tracking_categories(conn, start_tracking)
+            case "2":
+                stop_tracking = input("Choose which categories to stop tracking, type category IDs separated by spaces: ").split()
+                if stop_tracking:
+                    with pool.connection() as conn:
+                        jobs.stop_tracking_categories(conn, stop_tracking)
+            case _:
+                break
 
-        chosen_categories = input("Choose which categories to track, type category IDs separated by spaces: ")
-        chosen_categories = chosen_categories.split()
-        
-        jobs.stop_tracking_all_categories(conn)
-        jobs.start_tracking_categories(conn, chosen_categories)
-
-
-
-
-
+            
