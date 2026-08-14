@@ -8,5 +8,6 @@ version = "1.0.0"
 dependencies = [
     "requests",
     "psycopg[binary]",
-    "psycopg_pool"
+    "psycopg_pool",
+    "pytest"
 ]

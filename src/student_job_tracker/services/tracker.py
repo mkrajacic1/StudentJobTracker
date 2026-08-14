@@ -28,7 +28,6 @@ def find_deleted_jobs(jobs_from_snapshot: list[DictRow], scraped_jobs: set[int])
     for job in jobs_from_snapshot:
         job_id = job["job_id"]
         if job_id not in scraped_jobs:
-            print(f"Job {job_id} not available, will be deleted.")
             deleted_jobs.append(job_id)
 
     return deleted_jobs
@@ -38,10 +37,8 @@ def find_new_and_modified_jobs(job_postings: list[JobPosting], snapshot_jobs_las
     new_jobs, modified_jobs = [], []
     for job in job_postings:
         if job.job_id not in snapshot_jobs_last_modified:
-            print(f"New job: {job.job_id}")
             new_jobs.append(job)
         elif job.last_modified != snapshot_jobs_last_modified[job.job_id]:
-            print(f"Modified job: {job.job_id}")
             modified_jobs.append(job)
 
     return new_jobs, modified_jobs
@@ -79,7 +76,7 @@ def compare_categories(scraped_categories: list[JobCategory], db_categories: lis
     scraped_categories_by_id = {category.category_id: category for category in scraped_categories}
 
     if db_categories_by_id.keys() != scraped_categories_by_id.keys():
-        print("Categories changed!")
+        raise RuntimeError
 
     modified_categories = []
     for id, scraped_category in scraped_categories_by_id.items():
@@ -96,6 +93,6 @@ def monitor_categories(pool: ConnectionPool, scraped_categories: list[JobCategor
         modified_categories = compare_categories(scraped_categories, db_categories)
         if modified_categories:
             jobs.modify_categories(conn, modified_categories)
-            alert_message = f"Sljedeće kategorije poslova su promjenjene (ID): {", ".join([str(category.category_id) for category in modified_categories])}."
+            alert_message = f"Sljedeće kategorije poslova su promijenjene (ID): {", ".join([str(category.category_id) for category in modified_categories])}."
             telegram.alert_notify(alert_message)
             
