@@ -3,6 +3,7 @@ from student_job_tracker.services import tracker
 from student_job_tracker.services import api_scraper
 
 
+# Main entry point of the program
 def main():
     job_postings, categories = api_scraper.scrape()
     with db.get_connection_pool() as pool:

@@ -88,11 +88,6 @@ def delete_jobs(conn: Connection, jobs: list[int]) -> None:
         cur.execute("DELETE FROM job_postings WHERE job_id = ANY(%s);", [jobs])
 
 
-def truncate_jobs(conn: Connection) -> None:
-    with conn.cursor() as cur:
-        cur.execute("TRUNCATE job_postings;")
-
-
 def truncate_jobs_and_categories(conn: Connection) -> None:
     with conn.cursor() as cur:
         cur.execute("TRUNCATE job_postings, job_categories;")
@@ -120,7 +115,8 @@ def fetch_categories_status(conn: Connection) -> list[DictRow]:
 
 def modify_categories(conn: Connection, categories: list[JobCategory]) -> None:
     with conn.cursor() as cur:
-        cur.executemany("UPDATE job_categories SET (slug, category_name) = (%s, %s)", [[category.slug, category.category_name] for category in categories])
+        cur.executemany("UPDATE job_categories SET (slug, category_name) = (%s, %s) WHERE category_id = %s",
+                        [[category.slug, category.category_name, category.category_id] for category in categories])
 
 
 def start_tracking_categories(conn: Connection, category_IDs: list[str]) -> None:

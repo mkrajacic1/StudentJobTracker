@@ -2,9 +2,9 @@ from psycopg_pool import ConnectionPool
 
 from student_job_tracker.core import db
 from student_job_tracker.repositories import jobs
-from student_job_tracker.services.tracker import track_categories
 
 
+# CLI interface for managing tracked categories
 def track_categories(pool: ConnectionPool) -> None:
     while True:
         with pool.connection() as conn:

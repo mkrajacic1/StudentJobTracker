@@ -1,6 +1,5 @@
 from psycopg.rows import DictRow
 from psycopg_pool import ConnectionPool
-import requests
 
 from datetime import datetime
 
@@ -16,18 +15,6 @@ def populate_jobs_and_categories(pool: ConnectionPool):
     with pool.connection() as conn:
         jobs.populate_categories(conn, categories)
         jobs.populate_jobs(conn, job_postings)
-
-
-def populate_jobs_table(pool: ConnectionPool):
-    job_postings, _ = scrape()
-    with pool.connection() as conn:
-        jobs.populate_jobs(conn, job_postings)
-    
-    
-def reset_jobs_table(pool: ConnectionPool):
-    with pool.connection() as conn:
-        jobs.truncate_jobs(conn)
-    populate_jobs_table(pool)
 
 
 def resest_jobs_and_categories(pool: ConnectionPool):
@@ -109,35 +96,6 @@ def monitor_categories(pool: ConnectionPool, scraped_categories: list[JobCategor
         modified_categories = compare_categories(scraped_categories, db_categories)
         if modified_categories:
             jobs.modify_categories(conn, modified_categories)
-            alert_message = f"Sljedeće kategorije poslova su promjenjene (ID): {", ".join([str([category.category_id]) for category in modified_categories])}."
+            alert_message = f"Sljedeće kategorije poslova su promjenjene (ID): {", ".join([str(category.category_id) for category in modified_categories])}."
             telegram.alert_notify(alert_message)
-
-
-def track_categories(pool: ConnectionPool):
-    while True:
-        with pool.connection() as conn:
-            available_categories = jobs.fetch_categories_status(conn)
-
-        for category in available_categories:
-            print(f"{category["category_name"]}\t\tID:{category["category_id"]}\t\tCurrently tracking: {"yes" if category["tracked_status"] else "no"}")
-        print()
-        print("Command options:")
-        print("Start tracking categories - 1")
-        print("Stop tracking categories - 2")
-        print("Choose any other key to exit")
-        choice = input("Input: ").strip()
-        match choice:
-            case "1":
-                start_tracking = input("Choose which categories to track, type category IDs separated by spaces: ").split()
-                if start_tracking:
-                    with pool.connection() as conn:
-                        jobs.start_tracking_categories(conn, start_tracking)
-            case "2":
-                stop_tracking = input("Choose which categories to stop tracking, type category IDs separated by spaces: ").split()
-                if stop_tracking:
-                    with pool.connection() as conn:
-                        jobs.stop_tracking_categories(conn, stop_tracking)
-            case _:
-                break
-
             

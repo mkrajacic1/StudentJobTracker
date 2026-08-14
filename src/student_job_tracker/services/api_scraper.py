@@ -15,7 +15,7 @@ SUBSEQUENT_PAGES = "https://www.sczg.unizg.hr/wp-json/wp/v2/jobs"
 TIMEOUT_DURATION = 5
 JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
 
-
+# HTML parser implemented because some of the scraped job data comes in HTML format.
 class MyHTMLParser(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -101,6 +101,7 @@ def parse_categories(categories: list[dict]) -> list[JobCategory]:
     return [parse_category(category) for category in categories]
 
 
+# sleep intervals added between API calls to scrape politely
 def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
     with requests.Session() as se:
         se.headers.update({"Referer": REFERER})
@@ -132,9 +133,7 @@ def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
     all_categories = parse_categories(categories)
 
     initial_jobs = initial_jobs_data["pageProps"]["initialJobs"]
-    paginated_jobs = [job for job_list in paginated_jobs for job in job_list]   # need to flatten the list
-    all_jobs = []
-    all_jobs.extend(parse_jobs(initial_jobs))
-    all_jobs.extend(parse_jobs(paginated_jobs))
+    paginated_jobs = [job for job_list in paginated_jobs for job in job_list]   # need to flatten the list to 1-D
+    all_jobs = parse_jobs(initial_jobs) + parse_jobs(paginated_jobs)
     
     return all_jobs, all_categories
