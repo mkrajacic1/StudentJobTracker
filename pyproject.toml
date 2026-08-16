@@ -9,5 +9,9 @@ dependencies = [
     "requests",
     "psycopg[binary]",
     "psycopg_pool",
-    "pytest"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
 ]
