@@ -14,7 +14,7 @@ def populate_jobs_and_categories(pool: ConnectionPool):
     job_postings, categories = scrape()
     with pool.connection() as conn:
         jobs.populate_categories(conn, categories)
-        jobs.populate_jobs(conn, job_postings)
+        jobs.insert_jobs(conn, job_postings)
 
 
 def resest_jobs_and_categories(pool: ConnectionPool):

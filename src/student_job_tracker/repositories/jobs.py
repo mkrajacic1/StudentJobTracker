@@ -5,37 +5,26 @@ from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.job import JobPosting
 
 
-INSERT_JOB_SQL = """
-                INSERT INTO job_postings (
-                    job_id,
-                    published_at,
-                    last_modified,
-                    expires,
-                    slug,
-                    job_title,
-                    category_id,
-                    company_name,
-                    contact,
-                    work_location,
-                    work_start,
-                    work_end,
-                    hourly_rate,
-                    work_hours,
-                    job_description,
-                    applicant_profile,
-                    required_skills,
-                    preferred_skills
-                ) 
-                VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                    %s, %s, %s, %s, %s, %s, %s, %s
-                );
-                """
-
-
-def populate_jobs(conn: Connection, jobs: list[JobPosting]) -> None:
-    with conn.cursor() as cur:
-        cur.executemany(INSERT_JOB_SQL, [job.to_db_row() for job in jobs])
+JOB_ALL_COLUMNS = """
+    job_id,
+    published_at,
+    last_modified,
+    expires,
+    slug,
+    job_title,
+    category_id,
+    company_name,
+    contact,
+    work_location,
+    work_start,
+    work_end,
+    hourly_rate,
+    work_hours,
+    job_description,
+    applicant_profile,
+    required_skills,
+    preferred_skills
+"""
 
 
 def fetch_jobs_modified_time(conn: Connection) -> list[DictRow]:
@@ -46,34 +35,24 @@ def fetch_jobs_modified_time(conn: Connection) -> list[DictRow]:
 
 def insert_jobs(conn: Connection, jobs: list[JobPosting]) -> None:
     with conn.cursor() as cur:
-        cur.executemany(INSERT_JOB_SQL, [job.to_db_row() for job in jobs])
+        cur.executemany(
+            f"""
+            INSERT INTO job_postings ({JOB_ALL_COLUMNS}) 
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
+                %s, %s, %s, %s, %s, %s, %s, %s
+            );
+            """, 
+            [job.to_db_row() for job in jobs]
+        )
 
 
 def modify_jobs(conn: Connection, jobs: list[JobPosting]) -> None:
     with conn.cursor() as cur:
         cur.executemany(
-            """
+            f"""
             UPDATE job_postings
-            SET (
-                job_id,
-                published_at,
-                last_modified,
-                expires,
-                slug,
-                job_title,
-                category_id,
-                contact,
-                company_name,
-                work_location,
-                work_start,
-                work_end,
-                hourly_rate,
-                work_hours,
-                job_description,
-                applicant_profile,
-                required_skills,
-                preferred_skills
-            ) = (
+            SET ({JOB_ALL_COLUMNS}) = (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
                 %s, %s, %s, %s, %s, %s, %s, %s
             )
