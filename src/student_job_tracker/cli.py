@@ -2,7 +2,8 @@ from psycopg_pool import ConnectionPool
 
 from student_job_tracker.core import db
 from student_job_tracker.repositories import jobs
-
+from student_job_tracker.services import tracker
+from student_job_tracker import scrape
 
 # CLI interface for managing tracked categories
 def track_categories(pool: ConnectionPool) -> None:
@@ -19,7 +20,7 @@ def track_categories(pool: ConnectionPool) -> None:
         print()
         print("<------- Command menu ------->")
         print("Start tracking categories - 1")
-        print("Stop tracking categories  - 2")
+        print("Stop tracking categories -- 2")
         print("Choose any other key to exit")
         print("<---------------------------->")
         choice = input("Input: ").strip()
@@ -39,9 +40,35 @@ def track_categories(pool: ConnectionPool) -> None:
                 break
 
 
+def populate_database(pool: ConnectionPool) -> None:
+    tracker.populate_jobs_and_categories(pool)
+
+
 def main():
-    with db.get_connection_pool() as pool:
-        track_categories(pool)
+    while True:
+        print()
+        print("Welcome to student job tracker!")
+        print()
+        print("<---------- Main menu ---------->")
+        print("Populate the database -------- 1")
+        print("Category tracking management - 2")
+        print("Perform a scrape ------------- 3")
+        print("Choose any other key to exit")
+        print("<------------------------------->")
+        choice = input("Input: ").strip()
+        
+        match choice:
+            case "1":
+                with db.get_connection_pool() as pool:
+                    populate_database(pool)
+            case "2":
+                with db.get_connection_pool() as pool:
+                    track_categories(pool)
+            case "3":
+                print("Scrape in progress...")
+                scrape.main()
+            case _:
+                break
 
 
 if __name__ == "__main__":
