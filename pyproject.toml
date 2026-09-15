@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "StudentJobTracker"
 version = "1.0.0"
 dependencies = [
+    "dotenv",
     "requests",
     "psycopg[binary]",
     "psycopg_pool",
@@ -15,3 +16,7 @@ dependencies = [
 dev = [
     "pytest",
 ]
+
+[project.scripts]
+setup = "student_job_tracker.cli:main"
+scrape = "student_job_tracker.main:main"
