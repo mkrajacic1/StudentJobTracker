@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.job_categories
     CONSTRAINT job_categories_pkey PRIMARY KEY (category_id),
     CONSTRAINT job_categories_category_name_key UNIQUE (category_name),
     CONSTRAINT job_categories_slug_key UNIQUE (slug)
-)
+);
 
 CREATE TABLE IF NOT EXISTS public.job_postings
 (
@@ -35,4 +35,4 @@ CREATE TABLE IF NOT EXISTS public.job_postings
         REFERENCES public.job_categories (category_id) MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
-)
+);

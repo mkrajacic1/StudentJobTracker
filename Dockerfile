@@ -7,4 +7,4 @@ COPY src/ ./src/
 
 RUN pip install --no-cache-dir .
 
-CMD ["python", "-m", "student_job_tracker.main"]
+CMD ["python", "-m", "student_job_tracker.cli"]
