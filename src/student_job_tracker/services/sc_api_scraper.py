@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import requests
+from requests import RequestException, JSONDecodeError
 
 from datetime import datetime
 from html.parser import HTMLParser
@@ -17,6 +18,12 @@ SC_JOBS_URL_SUFFIX = "hr/poslovi.json"
 SUBSEQUENT_PAGES = "https://www.sczg.unizg.hr/wp-json/wp/v2/jobs"
 TIMEOUT_DURATION = 5
 JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
+TIME_BETWEEN_REQUESTS = 1
+
+
+class ScraperError(Exception):
+    """A general exception class for the scraper module"""
+
 
 # HTML parser implemented because some of the scraped job data comes in HTML format
 class MyHTMLParser(HTMLParser):
@@ -104,29 +111,54 @@ def parse_categories(categories: list[dict]) -> list[JobCategory]:
     return [parse_category(category) for category in categories]
 
 
-# scrapes the up-to-date NextJS build id to craft a functioning API endpoint URL
-def get_initial_jobs_url() -> str:
-    home_page = requests.get(SC_ROOT_URL)
-    home_html = home_page.text
-    soup = BeautifulSoup(home_html, 'html.parser')
+# scrapes the up-to-date NextJS buildId to craft a functioning API endpoint URL
+def get_initial_jobs_url(root_document: str) -> str:
+    soup = BeautifulSoup(root_document, 'html.parser')
     next_data = soup.find(id="__NEXT_DATA__").get_text()
-    next_data = json.loads(next_data)
-    buildID = next_data["buildId"]
-    four = 2 + 2
-    return f"{SC_ROOT_URL}_next/data/{buildID}/{SC_JOBS_URL_SUFFIX}"
+    try:
+        next_data = json.loads(next_data)
+        build_id = next_data["buildId"]
+    except JSONDecodeError as exc:
+        raise ScraperError("An error occurred trying to decode json from the '__NEXT_DATA__' script") from exc
+    except KeyError as exc:
+        raise ScraperError("Key 'buildId' not found in the next_data json") from exc
+
+    return f"{SC_ROOT_URL}_next/data/{build_id}/{SC_JOBS_URL_SUFFIX}"
 
 
 # sleep intervals added between API calls to scrape politely
 def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
     with requests.Session() as se:
+        try:
+            root_response = se.get(SC_ROOT_URL, timeout=TIMEOUT_DURATION)
+            root_response.raise_for_status()
+        except RequestException as exc:
+            raise ScraperError("An error occurred trying to fetch the SC root document") from exc
+        root_document = root_response.text
+        initial_jobs_url = get_initial_jobs_url(root_document)
+
         se.headers.update({"Referer": REFERER})
 
-        initial_jobs_url = get_initial_jobs_url()
-        initial_jobs_response = se.get(initial_jobs_url, timeout=TIMEOUT_DURATION)
-        initial_jobs_data = initial_jobs_response.json()
-        time.sleep(1)
+        try:
+            initial_jobs_response = se.get(initial_jobs_url, timeout=TIMEOUT_DURATION)
+            initial_jobs_response.raise_for_status()
+        except RequestException as exc:
+            raise ScraperError("An error occurred trying to fetch the initial jobs page") from exc
+        
+        try:
+            initial_jobs_data = initial_jobs_response.json()
+        except JSONDecodeError as exc:
+            raise ScraperError("Unable to decode initial jobs data json") from exc
 
-        total_pages = int(initial_jobs_data["pageProps"]["totalPages"])
+        try:
+            total_pages = int(initial_jobs_data["pageProps"]["totalPages"])
+        except KeyError as exc:
+            raise ScraperError("Total pages key was not found in the initial jobs data json") from exc
+        except (ValueError, TypeError) as exc:
+            raise ScraperError("Wrong value for number of total job pages; expected int") from exc
+
+        time.sleep(TIME_BETWEEN_REQUESTS)
+        
         paginated_jobs = []
         for page_num in range(2, total_pages + 1):
             time_ms= round(time.time_ns() / 1000000)
@@ -139,17 +171,44 @@ def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
                 "filter_by_date": "true", 
                 "order": "desc"
             }
-            page_response = se.get(SUBSEQUENT_PAGES, timeout=TIMEOUT_DURATION, params=page_params)
-            paginated_jobs.append(page_response.json())
+            try:
+                page_response = se.get(SUBSEQUENT_PAGES, timeout=TIMEOUT_DURATION, params=page_params)
+                page_response.raise_for_status()
+            except RequestException as exc:
+                raise ScraperError(f"An error occurred trying to fetch the {page_num}. page of jobs") from exc
 
+            try:
+                paginated_jobs.append(page_response.json())
+            except JSONDecodeError as exc:
+                raise ScraperError(f"Unable to decode response json from {page_num}. page of jobs") from exc
+            
             if page_num != total_pages:
-                time.sleep(1)
+                time.sleep(TIME_BETWEEN_REQUESTS)
 
-    categories = initial_jobs_data["pageProps"]["categories"]
-    all_categories = parse_categories(categories)
+    try:
+        categories = initial_jobs_data["pageProps"]["categories"]
+    except KeyError as exc:
+        raise ScraperError("Categories key was not found in the initial jobs data json") from exc
 
-    initial_jobs = initial_jobs_data["pageProps"]["initialJobs"]
-    paginated_jobs = [job for job_list in paginated_jobs for job in job_list]   # need to flatten the list to 1-D
-    all_jobs = parse_jobs(initial_jobs) + parse_jobs(paginated_jobs)
+    try:
+        all_categories = parse_categories(categories)
+    except KeyError as exc:
+        raise ScraperError("Invalid key in a job category dictionary") from exc
+    except (ValueError, TypeError) as exc:
+        raise ScraperError("Invalid value encountered while parsing job categories") from exc
+
+    try:
+        initial_jobs = initial_jobs_data["pageProps"]["initialJobs"]
+    except KeyError as exc:
+        raise ScraperError("Initial jobs list key was not found in the jobs data json") from exc
+
+    # need to flatten the jobs list to 1-D before parsing
+    paginated_jobs = [job for job_list in paginated_jobs for job in job_list] 
+    try:
+        all_jobs = parse_jobs(initial_jobs) + parse_jobs(paginated_jobs)
+    except KeyError as exc:
+        raise ScraperError("Invalid key encountered while parsing jobs") from exc
+    except (ValueError, TypeError) as exc:
+        raise ScraperError("Invalid value encountered while parsing jobs") from exc
     
     return all_jobs, all_categories
