@@ -6,7 +6,7 @@ from datetime import datetime
 from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.job import JobPosting
 from student_job_tracker.repositories import jobs
-from student_job_tracker.services.api_scraper import scrape
+from student_job_tracker.services.sc_api_scraper import scrape
 from student_job_tracker.services import telegram
 
 

@@ -1,7 +1,9 @@
+from bs4 import BeautifulSoup
 import requests
 
 from datetime import datetime
 from html.parser import HTMLParser
+import json
 import time
 import unicodedata
 
@@ -10,12 +12,13 @@ from student_job_tracker.models.job import JobPosting
 
 
 REFERER = "https://www.sczg.unizg.hr/"
-INITIAL_JOBS_URL = "https://www.sczg.unizg.hr/_next/data/BF2apvVzAG6jbVnlJBJoG/hr/poslovi.json"
+SC_ROOT_URL = "https://www.sczg.unizg.hr/"
+SC_JOBS_URL_SUFFIX = "hr/poslovi.json"
 SUBSEQUENT_PAGES = "https://www.sczg.unizg.hr/wp-json/wp/v2/jobs"
 TIMEOUT_DURATION = 5
 JOB_BASE_URL = "https://www.sczg.unizg.hr/poslovi/"
 
-# HTML parser implemented because some of the scraped job data comes in HTML format.
+# HTML parser implemented because some of the scraped job data comes in HTML format
 class MyHTMLParser(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -101,12 +104,25 @@ def parse_categories(categories: list[dict]) -> list[JobCategory]:
     return [parse_category(category) for category in categories]
 
 
+# scrapes the up-to-date NextJS build id to craft a functioning API endpoint URL
+def get_initial_jobs_url() -> str:
+    home_page = requests.get(SC_ROOT_URL)
+    home_html = home_page.text
+    soup = BeautifulSoup(home_html, 'html.parser')
+    next_data = soup.find(id="__NEXT_DATA__").get_text()
+    next_data = json.loads(next_data)
+    buildID = next_data["buildId"]
+    four = 2 + 2
+    return f"{SC_ROOT_URL}_next/data/{buildID}/{SC_JOBS_URL_SUFFIX}"
+
+
 # sleep intervals added between API calls to scrape politely
 def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
     with requests.Session() as se:
         se.headers.update({"Referer": REFERER})
-        
-        initial_jobs_response = se.get(INITIAL_JOBS_URL, timeout=TIMEOUT_DURATION)
+
+        initial_jobs_url = get_initial_jobs_url()
+        initial_jobs_response = se.get(initial_jobs_url, timeout=TIMEOUT_DURATION)
         initial_jobs_data = initial_jobs_response.json()
         time.sleep(1)
 

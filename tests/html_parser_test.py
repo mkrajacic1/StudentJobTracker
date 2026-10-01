@@ -1,4 +1,4 @@
-from student_job_tracker.services.api_scraper import text_from_html
+from student_job_tracker.services.sc_api_scraper import text_from_html
 
 
 def test_html_parser_from_description():
