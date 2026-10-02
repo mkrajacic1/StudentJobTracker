@@ -1,5 +1,6 @@
+from psycopg import DatabaseError
 from psycopg.rows import DictRow
-from psycopg_pool import ConnectionPool
+from psycopg_pool import ConnectionPool, PoolTimeout
 
 from datetime import datetime
 
@@ -10,17 +11,24 @@ from student_job_tracker.services.sc_api_scraper import scrape
 from student_job_tracker.services import telegram
 
 
+class DatabaseServiceError(Exception):
+    """Exception class for database related errors"""
+
+
+class TrackerError(Exception):
+    """A general exception class for tracker service errors"""
+
+
 def populate_jobs_and_categories(pool: ConnectionPool):
     job_postings, categories = scrape()
-    with pool.connection() as conn:
-        jobs.populate_categories(conn, categories)
-        jobs.insert_jobs(conn, job_postings)
-
-
-def resest_jobs_and_categories(pool: ConnectionPool):
-    with pool.connection() as conn:
-        jobs.truncate_jobs_and_categories(conn)
-    populate_jobs_and_categories(pool)
+    try:
+        with pool.connection() as conn:
+            jobs.populate_categories(conn, categories)
+            jobs.insert_jobs(conn, job_postings)
+    except PoolTimeout as exc:
+        raise DatabaseServiceError("Unable to get connection from the pool while populating the database") from exc
+    except DatabaseError as exc:
+        raise DatabaseServiceError("An error occurred trying to populate the database") from exc
 
 
 def find_deleted_jobs(jobs_from_snapshot: list[DictRow], scraped_jobs: set[int]) -> list[int]:
@@ -46,23 +54,34 @@ def find_new_and_modified_jobs(job_postings: list[JobPosting], snapshot_jobs_las
 
 def update_job_state(pool: ConnectionPool, scraped_jobs: list[JobPosting]) -> tuple[list[JobPosting], list[JobPosting]]:
     scraped_jobs_ids = {job.job_id for job in scraped_jobs}
-    with pool.connection() as conn:
-        db_snapshot_jobs = jobs.fetch_jobs_modified_time(conn)
-        snapshot_jobs_last_modified = {job["job_id"]: job["last_modified"] for job in db_snapshot_jobs}
+    try:
+        with pool.connection() as conn:
+            db_snapshot_jobs = jobs.fetch_jobs_modified_time(conn)
+            snapshot_jobs_last_modified = {job["job_id"]: job["last_modified"] for job in db_snapshot_jobs}
 
-        deleted_jobs = find_deleted_jobs(db_snapshot_jobs, scraped_jobs_ids)
-        jobs.delete_jobs(conn, deleted_jobs)
+            deleted_jobs = find_deleted_jobs(db_snapshot_jobs, scraped_jobs_ids)
+            jobs.delete_jobs(conn, deleted_jobs)
 
-        new_jobs, modified_jobs = find_new_and_modified_jobs(scraped_jobs, snapshot_jobs_last_modified)
-        jobs.modify_jobs(conn, modified_jobs)
-        jobs.insert_jobs(conn, new_jobs)
+            new_jobs, modified_jobs = find_new_and_modified_jobs(scraped_jobs, snapshot_jobs_last_modified)
+            jobs.modify_jobs(conn, modified_jobs)
+            jobs.insert_jobs(conn, new_jobs)
+    except PoolTimeout as exc:
+        raise DatabaseServiceError("Unable to get connection from the pool while updating job state") from exc
+    except DatabaseError as exc:
+        raise DatabaseServiceError("A database error occurred trying to update job state") from exc
 
     return new_jobs, modified_jobs
 
 
 def track_jobs(pool: ConnectionPool, job_postings: list[JobPosting]):
-    with pool.connection() as conn:
-        tracked_categories = jobs.fetch_categories_status(conn)
+    try:
+        with pool.connection() as conn:
+            tracked_categories = jobs.fetch_categories_status(conn)
+    except PoolTimeout as exc:
+        raise DatabaseServiceError("Unable to get connection from the pool while fetching tracked categories") from exc
+    except DatabaseError as exc:
+        raise DatabaseServiceError("A database error occurred trying to fetch tracked categories") from exc
+    
     tracked_categories = {category["category_id"] for category in tracked_categories if category["tracked_status"]}
 
     new_jobs, modified_jobs = update_job_state(pool, job_postings)
@@ -76,7 +95,7 @@ def compare_categories(scraped_categories: list[JobCategory], db_categories: lis
     scraped_categories_by_id = {category.category_id: category for category in scraped_categories}
 
     if db_categories_by_id.keys() != scraped_categories_by_id.keys():
-        raise RuntimeError
+        raise TrackerError("Job category IDs changed!")
 
     modified_categories = []
     for id, scraped_category in scraped_categories_by_id.items():
@@ -88,11 +107,15 @@ def compare_categories(scraped_categories: list[JobCategory], db_categories: lis
 
 
 def monitor_categories(pool: ConnectionPool, scraped_categories: list[JobCategory]):
-    with pool.connection() as conn:
-        db_categories = jobs.fetch_categories(conn)
-        modified_categories = compare_categories(scraped_categories, db_categories)
-        if modified_categories:
-            jobs.modify_categories(conn, modified_categories)
-            alert_message = f"Sljedeće kategorije poslova su promijenjene (ID): {", ".join([str(category.category_id) for category in modified_categories])}."
-            telegram.alert_notify(alert_message)
-            
+    try:
+        with pool.connection() as conn:
+            db_categories = jobs.fetch_categories(conn)
+            modified_categories = compare_categories(scraped_categories, db_categories)
+            if modified_categories:
+                alert_message = f"Sljedeće kategorije poslova su promijenjene (ID): {", ".join([str(category.category_id) for category in modified_categories])}."
+                telegram.alert_notify(alert_message)
+                jobs.modify_categories(conn, modified_categories)
+    except PoolTimeout as exc:
+        raise DatabaseServiceError("Unable to get connection from the pool while monitoring job categories") from exc
+    except DatabaseError as exc:
+        raise DatabaseServiceError("A database error occurred trying to monitor possible category changes") from exc        

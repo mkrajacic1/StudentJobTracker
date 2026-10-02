@@ -6,6 +6,7 @@ from student_job_tracker.core import db
 from student_job_tracker.core.config import ROOT_DIR
 from student_job_tracker.services import tracker
 from student_job_tracker.services import sc_api_scraper
+from student_job_tracker.services import telegram
 
 
 logger = logging.getLogger("StudentJobTracker")
@@ -32,10 +33,26 @@ def main():
         with db.get_connection_pool() as pool:
             tracker.monitor_categories(pool, categories)
             tracker.track_jobs(pool, job_postings)
-    except sc_api_scraper.ScraperError as exc:
+    except sc_api_scraper.ScraperError:
         logger.exception("Scraper error terminated the program")
+    except db.ConnectionError:
+        logger.exception("Error while trying to create a database connection pool")
+    except tracker.DatabaseServiceError:
+        logger.exception("Error occurred attempting database operations")
+    except tracker.TrackerError:
+        logger.exception("Error occurred in the tracker module")
+    except telegram.TelegramError:
+        logger.exception("Error occurred in the Telegram Bot service")
+    except Exception as exc:
+        logger.exception("Ambiguous error occurred")
     else:
-        logger.info("Successful job")
+        try:
+            telegram.success_notify()
+        except telegram.TelegramError:
+            logger.exception("Telegram success message error")
+        else:
+            logger.info("Successful job")
+
 
 if __name__ == "__main__":
     main()
