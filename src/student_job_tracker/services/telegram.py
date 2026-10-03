@@ -7,7 +7,6 @@ from student_job_tracker.core.config import TELEGRAM_BOT_CHAT_ID, TELEGRAM_BOT_T
 from student_job_tracker.models.job import JobPosting
 
 
-UPDATES_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
 SEND_MESSAGE_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
 SC_BASE_LINK = "https://www.sczg.unizg.hr/poslovi"

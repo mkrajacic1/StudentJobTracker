@@ -22,3 +22,4 @@ dev = [
 [project.scripts]
 app = "student_job_tracker.cli:main"
 scrape = "student_job_tracker.scrape:main"
+get_chat = "student_job_tracker.scripts.telegram_chat_id:main"
