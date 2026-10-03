@@ -53,7 +53,6 @@ def main():
         else:
             logger.info("Successful job")
 
-
 if __name__ == "__main__":
     main()
 

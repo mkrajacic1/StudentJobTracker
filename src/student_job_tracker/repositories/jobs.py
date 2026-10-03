@@ -1,5 +1,7 @@
 from psycopg import Connection
-from psycopg.rows import dict_row, DictRow, class_row
+from psycopg.rows import dict_row, DictRow, class_row, scalar_row
+
+from typing import Any
 
 from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.job import JobPosting
@@ -106,3 +108,9 @@ def start_tracking_categories(conn: Connection, category_IDs: list[str]) -> None
 def stop_tracking_categories(conn: Connection, category_IDs: list[str]) -> None:
     with conn.cursor() as cur:
         cur.execute("UPDATE job_categories SET tracked_status = false WHERE category_id = ANY(%s);", [category_IDs])
+
+
+def categories_count(conn: Connection) -> Any:
+    with conn.cursor(row_factory=scalar_row) as cur:
+        cur.execute("SELECT COUNT(category_id) FROM job_categories;")
+        return cur.fetchone()

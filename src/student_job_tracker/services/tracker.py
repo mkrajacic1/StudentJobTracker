@@ -109,6 +109,11 @@ def compare_categories(scraped_categories: list[JobCategory], db_categories: lis
 def monitor_categories(pool: ConnectionPool, scraped_categories: list[JobCategory]):
     try:
         with pool.connection() as conn:
+            # populate categories table in case of an empty database
+            if not jobs.categories_count(conn):
+                jobs.populate_categories(conn, scraped_categories)
+                return 
+
             db_categories = jobs.fetch_categories(conn)
             modified_categories = compare_categories(scraped_categories, db_categories)
             if modified_categories:
