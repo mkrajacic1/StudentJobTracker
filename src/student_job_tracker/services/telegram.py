@@ -1,19 +1,14 @@
 import requests
 from requests import RequestException, JSONDecodeError
 
-import dotenv
-import os
 from typing import Any
 
+from student_job_tracker.core.config import TELEGRAM_BOT_CHAT_ID, TELEGRAM_BOT_TOKEN
 from student_job_tracker.models.job import JobPosting
 
 
-dotenv.load_dotenv()
-BOT_TOKEN = os.environ["telegram-bot-token"]
-CHAT_ID = os.environ["telegram-chat-id"]
-
-UPDATES_API = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-SEND_MESSAGE_API = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+UPDATES_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+SEND_MESSAGE_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
 
 SC_BASE_LINK = "https://www.sczg.unizg.hr/poslovi"
 
@@ -34,7 +29,7 @@ def check_response_status(response_json: Any) -> None:
 
 
 def send_notification(se: requests.Session, message_text: str) -> None:
-    data = {"chat_id": CHAT_ID, "text": message_text}
+    data = {"chat_id": TELEGRAM_BOT_CHAT_ID, "text": message_text}
     response = se.post(SEND_MESSAGE_API, json=data, timeout=TIMEOUT_DURATION)
     response.raise_for_status()
     check_response_status(response.json())
@@ -67,7 +62,7 @@ def jobs_updates_notify(new_jobs: list[JobPosting], modified_jobs: list[JobPosti
 
 def alert_notify(alert_message: str) -> None:
     alert_message = f"⚠️ Upozorenje!\n\n{alert_message}"
-    data = {"chat_id": CHAT_ID, "text": alert_message}
+    data = {"chat_id": TELEGRAM_BOT_CHAT_ID, "text": alert_message}
     try:
         response = requests.post(SEND_MESSAGE_API, json=data, timeout=TIMEOUT_DURATION)
         response.raise_for_status()
@@ -80,7 +75,7 @@ def alert_notify(alert_message: str) -> None:
 
 def success_notify() -> None:
     success_message = "🟢 Uspješno obavljen pregled oglasa!"
-    data = {"chat_id": CHAT_ID, "text": success_message}
+    data = {"chat_id": TELEGRAM_BOT_CHAT_ID, "text": success_message}
     try:
         response = requests.post(SEND_MESSAGE_API, json=data, timeout=TIMEOUT_DURATION)
         response.raise_for_status()
