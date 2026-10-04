@@ -1,11 +1,12 @@
 from bs4 import BeautifulSoup
 import requests
-from requests import RequestException, JSONDecodeError
+from requests import Session, RequestException, JSONDecodeError
 
 from datetime import datetime
 from html.parser import HTMLParser
 import json
 import time
+from typing import Any
 import unicodedata
 
 from student_job_tracker.models.category import JobCategory
@@ -111,8 +112,70 @@ def parse_categories(categories: list[dict]) -> list[JobCategory]:
     return [parse_category(category) for category in categories]
 
 
+def scrape_categories(initial_jobs_data: Any) -> list[JobCategory]:
+    try:
+        categories = initial_jobs_data["pageProps"]["categories"]
+    except KeyError as exc:
+        raise ScraperError("Categories key was not found in the initial jobs data json") from exc
+
+    try:
+        all_categories = parse_categories(categories)
+    except KeyError as exc:
+        raise ScraperError("Invalid key in a job category dictionary") from exc
+    except (ValueError, TypeError) as exc:
+        raise ScraperError("Invalid value encountered while parsing job categories") from exc
+
+    return all_categories
+
+
+def fetch_paginated_jobs(se: Session, total_pages: int) -> list[Any]:
+    se.headers.update({"Referer": REFERER})
+    paginated_jobs = []
+    for page_num in range(2, total_pages + 1):
+        time_ms= round(time.time_ns() / 1000000)
+        page_params = {
+            "per_page": 30, 
+            "page": page_num,
+            "timestamp": time_ms,
+            "allowed_sc": "true", 
+            "orderby": "modified", 
+            "filter_by_date": "true", 
+            "order": "desc"
+        }
+        try:
+            page_response = se.get(SUBSEQUENT_PAGES, timeout=TIMEOUT_DURATION, params=page_params)
+            page_response.raise_for_status()
+        except RequestException as exc:
+            raise ScraperError(f"An error occurred trying to fetch the {page_num}. page of jobs") from exc
+
+        try:
+            paginated_jobs.append(page_response.json())
+        except JSONDecodeError as exc:
+            raise ScraperError(f"Unable to decode response json from {page_num}. page of jobs") from exc
+        
+        if page_num != total_pages:
+            time.sleep(TIME_BETWEEN_REQUESTS)
+
+    return paginated_jobs
+
+
+def fetch_initial_jobs_data(se: Session, initial_jobs_url: str) -> Any:
+    se.headers.update({"Referer": REFERER})
+    try:
+        initial_jobs_response = se.get(initial_jobs_url, timeout=TIMEOUT_DURATION)
+        initial_jobs_response.raise_for_status()
+    except RequestException as exc:
+        raise ScraperError("An error occurred trying to fetch the initial jobs page") from exc
+    
+    try:
+        initial_jobs_data = initial_jobs_response.json()
+    except JSONDecodeError as exc:
+        raise ScraperError("Unable to decode initial jobs data json") from exc
+
+    return initial_jobs_data
+
 # scrapes the up-to-date NextJS buildId to craft a functioning API endpoint URL
-def get_initial_jobs_url(root_document: str) -> str:
+def scrape_initial_jobs_url(root_document: str) -> str:
     soup = BeautifulSoup(root_document, 'html.parser')
     next_data = soup.find(id="__NEXT_DATA__").get_text()
     try:
@@ -126,29 +189,33 @@ def get_initial_jobs_url(root_document: str) -> str:
     return f"{SC_ROOT_URL}_next/data/{build_id}/{SC_JOBS_URL_SUFFIX}"
 
 
+def fetch_root_document(se: Session) -> str:
+    try:
+        root_response = se.get(SC_ROOT_URL, timeout=TIMEOUT_DURATION)
+        root_response.raise_for_status()
+    except RequestException as exc:
+        raise ScraperError("An error occurred trying to fetch the SC root document") from exc
+
+    return root_response.text
+
+
+def fetch_initial_jobs_url(se: Session) -> str:
+    root_document = fetch_root_document(se)
+    initial_jobs_url = scrape_initial_jobs_url(root_document)
+
+    return initial_jobs_url
+
+
+def scrape_initial_jobs_data(se: Session) -> Any:
+    initial_jobs_url = fetch_initial_jobs_url(se)
+    initial_jobs_data = fetch_initial_jobs_data(se, initial_jobs_url)
+
+    return initial_jobs_data
+
 # sleep intervals added between API calls to scrape politely
 def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
     with requests.Session() as se:
-        try:
-            root_response = se.get(SC_ROOT_URL, timeout=TIMEOUT_DURATION)
-            root_response.raise_for_status()
-        except RequestException as exc:
-            raise ScraperError("An error occurred trying to fetch the SC root document") from exc
-        root_document = root_response.text
-        initial_jobs_url = get_initial_jobs_url(root_document)
-
-        se.headers.update({"Referer": REFERER})
-
-        try:
-            initial_jobs_response = se.get(initial_jobs_url, timeout=TIMEOUT_DURATION)
-            initial_jobs_response.raise_for_status()
-        except RequestException as exc:
-            raise ScraperError("An error occurred trying to fetch the initial jobs page") from exc
-        
-        try:
-            initial_jobs_data = initial_jobs_response.json()
-        except JSONDecodeError as exc:
-            raise ScraperError("Unable to decode initial jobs data json") from exc
+        initial_jobs_data = scrape_initial_jobs_data(se)
 
         try:
             total_pages = int(initial_jobs_data["pageProps"]["totalPages"])
@@ -156,46 +223,11 @@ def scrape() -> tuple[list[JobPosting], list[JobCategory]]:
             raise ScraperError("Total pages key was not found in the initial jobs data json") from exc
         except (ValueError, TypeError) as exc:
             raise ScraperError("Wrong value for number of total job pages; expected int") from exc
-
-        time.sleep(TIME_BETWEEN_REQUESTS)
         
-        paginated_jobs = []
-        for page_num in range(2, total_pages + 1):
-            time_ms= round(time.time_ns() / 1000000)
-            page_params = {
-                "per_page": 30, 
-                "page": page_num,
-                "timestamp": time_ms,
-                "allowed_sc": "true", 
-                "orderby": "modified", 
-                "filter_by_date": "true", 
-                "order": "desc"
-            }
-            try:
-                page_response = se.get(SUBSEQUENT_PAGES, timeout=TIMEOUT_DURATION, params=page_params)
-                page_response.raise_for_status()
-            except RequestException as exc:
-                raise ScraperError(f"An error occurred trying to fetch the {page_num}. page of jobs") from exc
+        time.sleep(TIME_BETWEEN_REQUESTS)
+        paginated_jobs = fetch_paginated_jobs(se, total_pages)
 
-            try:
-                paginated_jobs.append(page_response.json())
-            except JSONDecodeError as exc:
-                raise ScraperError(f"Unable to decode response json from {page_num}. page of jobs") from exc
-            
-            if page_num != total_pages:
-                time.sleep(TIME_BETWEEN_REQUESTS)
-
-    try:
-        categories = initial_jobs_data["pageProps"]["categories"]
-    except KeyError as exc:
-        raise ScraperError("Categories key was not found in the initial jobs data json") from exc
-
-    try:
-        all_categories = parse_categories(categories)
-    except KeyError as exc:
-        raise ScraperError("Invalid key in a job category dictionary") from exc
-    except (ValueError, TypeError) as exc:
-        raise ScraperError("Invalid value encountered while parsing job categories") from exc
+    all_categories = scrape_categories(initial_jobs_data)
 
     try:
         initial_jobs = initial_jobs_data["pageProps"]["initialJobs"]

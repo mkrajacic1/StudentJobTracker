@@ -20,6 +20,6 @@ dev = [
 ]
 
 [project.scripts]
-app = "student_job_tracker.cli:main"
+manage_categories = "student_job_tracker.scripts.manage_categories:main"
+get_chat_id = "student_job_tracker.scripts.get_chat_id:main"
 scrape = "student_job_tracker.scrape:main"
-get_chat = "student_job_tracker.scripts.telegram_chat_id:main"
