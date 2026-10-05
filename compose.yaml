@@ -1,28 +1,53 @@
 services:
-  app:
+  scraper:
     build: .
+    env_file:
+      - .env
+    environment:
+      - HOST=db
+      - ROOT_DIR=/app
+    volumes:
+      - ./logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
+  
+  get_chat_id:
+    build: .
+    command: ["get_chat_id"]
     env_file:
       - .env
-    stdin_open: true
-    tty: true
+    profiles:
+      - setup
+  
+  manage_categories:
+    build: .
+    command: ["manage_categories"]
+    env_file:
+      - .env
+    environment:
+      - HOST=db
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - setup
 
   db:
-    image: postgres:17
+    image: postgres:18
     environment:
-      POSTGRES_USER: ${user}
-      POSTGRES_PASSWORD: ${password}
-      POSTGRES_DB: ${dbname}
+      - POSTGRES_USER=${USER}
+      - POSTGRES_PASSWORD=${PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${user} -d ${dbname}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
-  postgres_data:
+  db-data:

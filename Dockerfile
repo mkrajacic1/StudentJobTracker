@@ -1,10 +1,12 @@
-FROM python:3.13-slim
+FROM python:3
 
 WORKDIR /app
 
-COPY pyproject.toml .
-COPY src/ ./src/
+COPY . .
 
 RUN pip install --no-cache-dir .
 
-CMD ["python", "-m", "student_job_tracker.cli"]
+RUN useradd app
+USER app
+
+CMD ["scrape"]
