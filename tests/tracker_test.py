@@ -4,7 +4,7 @@ from datetime import datetime
 
 from student_job_tracker.models.category import JobCategory
 from student_job_tracker.models.job import JobPosting
-from student_job_tracker.services.tracker import find_deleted_jobs, find_new_and_modified_jobs, compare_categories
+from student_job_tracker.services.tracker import find_deleted_jobs, find_new_and_modified_jobs, compare_categories, TrackerError
 
 # tests for find_deleted_jobs()
 
@@ -79,7 +79,7 @@ def test_compare_categories_ID_change():
         JobCategory(200, "skladisni-poslovi", "Skladišni poslovi"),
         JobCategory(400, "administracija", "Administracija")
     ]
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TrackerError):
         compare_categories(scraped_categories, db_categories)
 
 
