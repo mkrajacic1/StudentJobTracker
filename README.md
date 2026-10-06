@@ -84,7 +84,7 @@ TELEGRAM_CHAT_ID=<your-chat_id-goes-here>
 #### Choose categories to track
 
 Run the **_manage_categories_** service container.  
-If the categories haven't yet been stored they will first have to be scraped.
+If the available categories haven't been fetched yet, they will be retrieved automatically.
 
 ```bash
 docker compose run --rm manage_categories
@@ -153,7 +153,7 @@ docker compose down
 Make the script executable:
 
 ```bash
-chmod +x /path/to/StudentJobTracker/run_scraper.sh
+chmod +x /path/to/run_scraper.sh
 ```
 
 Open the crontab editor:
@@ -165,7 +165,7 @@ crontab -e
 Add an entry to schedule the scraper. For example, to execute it every day at 16:00:
 
 ```bash
-0 8 \* \* \* /path/to/StudentJobTracker/run_scraper.sh >> /path/to/StudentJobTracker/logs/cron.log 2>&1
+0 8 \* \* \* /path/to/run_scraper.sh >> /path/to/cron.log 2>&1
 ```
 
 The output of scheduled executions will be appended to cron.log.
