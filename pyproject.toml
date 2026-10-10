@@ -1,5 +1,5 @@
 [build-system]
-requires-python = ">= 3.12"
+requires-python = ">= 3.10"
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
@@ -11,7 +11,7 @@ dependencies = [
     "dotenv",
     "requests",
     "psycopg[binary]",
-    "psycopg_pool",
+    "psycopg_pool"
 ]
 
 [project.optional-dependencies]

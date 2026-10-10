@@ -28,31 +28,43 @@ logger.addHandler(rfh)
 
 # Main entry point of the program
 def main():
+    success = False
+    error_message = "Unknown error"
     try:
         job_postings, categories = sc_api_scraper.scrape()
         with db.get_connection_pool() as pool:
             tracker.monitor_categories(pool, categories)
             tracker.track_jobs(pool, job_postings)
     except sc_api_scraper.ScraperError:
-        logger.exception("Scraper error terminated the program")
+        error_message = "Scraper error terminated the program"
+        logger.exception(error_message)
     except db.ConnectionError:
-        logger.exception("Error while trying to create a database connection pool")
+        error_message = "Error while trying to create a database connection pool"
+        logger.exception(error_message)
     except tracker.DatabaseServiceError:
-        logger.exception("Error occurred attempting database operations")
+        error_message = "Error occurred attempting database operations"
+        logger.exception(error_message)
     except tracker.TrackerError:
-        logger.exception("Error occurred in the tracker module")
+        error_message = "Error occurred in the tracker module"
+        logger.exception(error_message)
     except telegram.TelegramError:
-        logger.exception("Error occurred in the Telegram Bot service")
-    except Exception as exc:
-        logger.exception("Ambiguous error occurred")
+        error_message = "Error occurred in the Telegram Bot service"
+        logger.exception(error_message)
+    except Exception:
+        error_message = "Ambiguous error occurred"
+        logger.exception(error_message)
     else:
+        success = True
+    finally:
         try:
-            telegram.success_notify()
+            if success:
+                telegram.success_notify()
+                logger.info("Successful job")
+            else:
+                telegram.alert_notify(error_message)            
         except telegram.TelegramError:
-            logger.exception("Telegram success message error")
-        else:
-            logger.info("Successful job")
+            logger.exception("Telegram status message error")
+            
 
 if __name__ == "__main__":
     main()
-
