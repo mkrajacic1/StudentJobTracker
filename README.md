@@ -104,68 +104,28 @@ The service is intended to be scheduled to run in the background with minimal us
 
 PostgreSQL data is stored in a persistent Docker volume, ensuring that database contents are preserved across container restarts and removals.
 
-### Windows Task Scheduler
-
-To automate the service execution on **Windows** my preferred approach is scheduling a **.bat**
-script execution using the **Task Scheduler**.
-The .bat script executes docker commands to start the service containers and stop them after task execution.
-
-```bat
-REM The contents of the .bat script
-
-REM Execute commands from the project directory
-cd C:\path\to\StudentJobTracker
-
-REM Build and start the main containers
-docker compose up -d
-
-REM Wait for the scraper container to finish execution
-docker compose wait scraper
-
-REM Stop and remove the containers
-docker compose down
-```
+Disclaimer: the Docker engine must be running for scheduled tasks to work.
 
 ### Linux cron job
 
-To automate execution on Linux, I recommend scheduling a **.sh** script using `cron`.
-The script executes the scraper container, waits for it to finish, and removes
-the containers afterward.
+To schedule automated execution on Linux, create a `cron` job which executes the `automation/linux.sh` script.
+Make sure the script has a valid shebang and that the user running the cron job has permission to execute the script.
 
-Create a script named run_scraper.sh:
-
-```shell
-#!/bin/bash
-
-# Execute commands from the project directory
-cd /path/to/StudentJobTracker || exit 1
-
-# Build and start the main containers
-docker compose up -d
-
-# Wait for the scraper container to finish execution
-docker compose wait scraper
-
-# Stop and remove the containers
-docker compose down
-```
-
-Make the script executable:
+Example crontab entry which executes the script Mon-Fri at 16:00:
 
 ```bash
-chmod +x /path/to/run_scraper.sh
+0 16 * * 1-5 /path/to/project/automation/linux.sh
 ```
 
-Open the crontab editor:
+### Windows Task Scheduler
 
-```bash
-crontab -e
-```
+To schedule automated execution on Windows, use **Task Scheduler**.
 
-Add an entry to schedule the scraper. For example, to execute it every day at 16:00:
+Task Action configuration:
 
-```bash
-0 8 \* \* \* /path/to/run_scraper.sh >> /path/to/cron.log 2>&1
-```
+- Action: Start a program
+- Program/script: powershell.exe
+- Add argument: C:\path\to\project\automation\windows.ps1
 
-The output of scheduled executions will be appended to cron.log.
+**Tip**: In task General settings, under Security Options select the task to run wheter the user is logged on or not.
+This will run the task in the background so no terminal window pops up.

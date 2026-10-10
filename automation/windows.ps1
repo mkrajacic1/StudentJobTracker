@@ -1,6 +1,6 @@
 # This powershell script is used to execute a scraping job automatically
 
-# First set the current directory to the project root, where the compose file is located
+# First change directory the project root, where the compose file is located
 $ProjectRoot = Split-Path $PSScriptRoot -Parent 
 Set-Location $ProjectRoot
 

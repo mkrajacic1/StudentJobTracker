@@ -60,7 +60,7 @@ def jobs_updates_notify(new_jobs: list[JobPosting], modified_jobs: list[JobPosti
 
 
 def alert_notify(alert_message: str) -> None:
-    alert_message = f"⚠️ Upozorenje!\n\n{alert_message}"
+    alert_message = f"⚠️ System alert ⚠️\n\n{alert_message}"
     data = {"chat_id": TELEGRAM_BOT_CHAT_ID, "text": alert_message}
     try:
         response = requests.post(SEND_MESSAGE_API, json=data, timeout=TIMEOUT_DURATION)
