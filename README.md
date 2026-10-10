@@ -104,7 +104,7 @@ The service is intended to be scheduled to run in the background with minimal us
 
 PostgreSQL data is stored in a persistent Docker volume, ensuring that database contents are preserved across container restarts and removals.
 
-Disclaimer: the Docker engine must be running for scheduled tasks to work.
+**Disclaimer**: the Docker engine must be running for scheduled tasks to work.
 
 ### Linux cron job
 
@@ -127,5 +127,5 @@ Task Action configuration:
 - Program/script: powershell.exe
 - Add argument: C:\path\to\project\automation\windows.ps1
 
-**Tip**: In task General settings, under Security Options select the task to run wheter the user is logged on or not.
+**Tip**: In task _General_ settings, under _Security Options_ select the task to run wheter the user is logged on or not.
 This will run the task in the background so no terminal window pops up.
