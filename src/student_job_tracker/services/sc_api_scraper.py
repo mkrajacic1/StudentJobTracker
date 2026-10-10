@@ -181,7 +181,7 @@ def scrape_initial_jobs_url(root_document: str) -> str:
     try:
         next_data = json.loads(next_data)
         build_id = next_data["buildId"]
-    except JSONDecodeError as exc:
+    except json.JSONDecodeError as exc:
         raise ScraperError("An error occurred trying to decode json from the '__NEXT_DATA__' script") from exc
     except KeyError as exc:
         raise ScraperError("Key 'buildId' not found in the next_data json") from exc

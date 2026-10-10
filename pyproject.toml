@@ -1,14 +1,14 @@
 [build-system]
-requires-python = ">= 3.10"
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "StudentJobTracker"
 version = "1.0.0"
+requires-python = ">= 3.12"
 dependencies = [
     "beautifulsoup4",
-    "dotenv",
+    "python-dotenv",
     "requests",
     "psycopg[binary]",
     "psycopg_pool"

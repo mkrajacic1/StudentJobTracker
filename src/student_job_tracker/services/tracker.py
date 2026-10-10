@@ -19,18 +19,6 @@ class TrackerError(Exception):
     """A general exception class for tracker service errors"""
 
 
-def populate_jobs_and_categories(pool: ConnectionPool):
-    job_postings, categories = scrape()
-    try:
-        with pool.connection() as conn:
-            jobs.populate_categories(conn, categories)
-            jobs.insert_jobs(conn, job_postings)
-    except PoolTimeout as exc:
-        raise DatabaseServiceError("Unable to get connection from the pool while populating the database") from exc
-    except DatabaseError as exc:
-        raise DatabaseServiceError("An error occurred trying to populate the database") from exc
-
-
 def find_deleted_jobs(jobs_from_snapshot: list[DictRow], scraped_jobs: set[int]) -> list[int]:
     deleted_jobs = []
     for job in jobs_from_snapshot:

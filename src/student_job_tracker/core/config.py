@@ -5,10 +5,10 @@ from os import path
 dotenv.load_dotenv()
 
 # db config
-HOST = os.environ["HOST"]
+HOST = os.environ["DB_HOST"]
 DB_NAME = os.environ["DB_NAME"]
-USER = os.environ["USER"]
-PASSWORD = os.environ["PASSWORD"]
+USER = os.environ["DB_USER"]
+PASSWORD = os.environ["DB_PASSWORD"]
 
 CONN_STRING = f"postgresql://{USER}:{PASSWORD}@{HOST}/{DB_NAME}"
 
