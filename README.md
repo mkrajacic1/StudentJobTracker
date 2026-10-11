@@ -1,4 +1,4 @@
-# StudentJobTracker
+# Student Job Tracker
 
 An automated student job posting tracking service.
 
