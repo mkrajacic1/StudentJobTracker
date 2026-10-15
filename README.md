@@ -81,21 +81,22 @@ Save the chat id to .env.
 TELEGRAM_CHAT_ID=<your-chat_id-goes-here>
 ```
 
+#### Optional: run the main service
+
+You can manually start the scraper service container, to run once.
+This will populate the empty Postgres database.
+
+```bash
+docker compose up -d
+```
+
 #### Choose categories to track
 
 Run the **_manage_categories_** service container.  
-If the available categories haven't been fetched yet, they will be retrieved automatically.
+If the available categories haven't been fetched yet, they can be retrieved automatically.
 
 ```bash
 docker compose run --rm manage_categories
-```
-
-#### Optional: run the main service
-
-You can manually start the scraper service container, to run once:
-
-```bash
-docker compose run --rm scraper
 ```
 
 ## Automate container execution
